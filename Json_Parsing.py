@@ -1,16 +1,3 @@
-Latest code
-
-
-#This is just a simple shared plaintext pad, with no execution capabilities.
-
-#When you know what language you'd like to use for your interview,
-#simply choose it from the dropdown in the top bar.
-
-#You can also change the default language your pads are created with
-#in your account settings: https://coderpad.io/settings
-
-#Enjoy your interview!
-
 import json
 from datetime import datetime
 import pprint
