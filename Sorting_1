@@ -1,0 +1,49 @@
+# Sorting Problem 1
+
+def Partition(arr,low_index, high_index):
+    i = low_index - 1
+    pivot_val = arr[high_index]
+    for j in range(low_index, high_index):
+        if arr[j] < pivot_val:
+            i = i + 1
+            arr[i], arr[j] = arr[j], arr[i]            
+    # Finally swap pivot element to the correct position
+    arr[i+1], arr[high_index] = arr[high_index] , arr[i+1]
+    return i + 1
+
+# Finish 05-19
+def QuickSelect(a,k,res):
+    if k > 0:
+        l = 0
+        r = len(a) - 1
+        split_point = Partition(a, l, r) #choosing a pivot and saving its index
+        # print(r-k+1)
+        # print('k',k,'split_point',split_point,a[split_point])
+        
+        temp = k
+        while k > 0:
+            if split_point == r - k + 1: #if the choosen pivot is the correct elemnt, then return it
+                print('kth largest', a[split_point])
+                result = a[split_point]
+                res.append(result)
+            k = k - 1
+        
+        k = temp
+        #print(k,r - k + 1,split_point)
+        if split_point > r - k + 1: #if the element we are looking for is in the left part to the pivot then call 'kthlargest' on that part after modifing k
+            #print(k)
+            #print(k-(r-split_point+1))
+            QuickSelect(a[:split_point], k - (r - split_point + 1), res)
+        else: #if the element we are looking for is in the right part to the pivot then call 'kthlargest' on that part
+            #print(a)
+            #print('here',k)
+            #print('here',k-(r-split_point+1))
+            #print(a[split_point])
+            QuickSelect(a[split_point + 1:r + 1], k, res)
+    return res
+
+def topK(arr, k):
+    fin = []
+    fin2 = QuickSelect(arr,k,fin)
+    print(fin2)
+    return fin2
