@@ -1,0 +1,27 @@
+# Complete the function below.
+
+def generate_all_subsets(s):
+    
+    def convertStrtoList(s):
+        list = []
+        for char in s:
+            list.append(char)
+        return list
+    
+    def generate_all_subsets_helper(offset,partial_str,list):
+        #print(offset,list,partial_str)
+        if offset == len(list):
+            #if len(partial_str) != 0:
+            print(''.join(partial_str))
+            res.append("".join(partial_str.copy()))
+            return
+    
+        generate_all_subsets_helper(offset+1,partial_str,list)
+        generate_all_subsets_helper(offset+1,partial_str + [list[offset]],list)
+        
+        
+    list = convertStrtoList(s)
+    print(list)
+    res = []
+    generate_all_subsets_helper(0,[],list)
+    return (res)
