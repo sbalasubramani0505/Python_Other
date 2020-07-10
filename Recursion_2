@@ -1,0 +1,22 @@
+# Complete the function below.
+
+def generate_palindromic_decompositions(s):
+
+    def gen_pal_decomp_helper(offset, partial_string):
+        # Base case 
+        if ( offset == len(s) ):
+            #print(partial_string)
+            #print (''.join(partial_string))
+            res.append((''.join(partial_string)).rstrip('|'))
+            return
+        
+        # Recursion
+        for i in range(offset+1,len(s)+1):
+            prefix = s[offset:i]
+            if prefix == prefix[::-1]: # string == reverse
+                new_pref = prefix + "|"
+                gen_pal_decomp_helper(i, partial_string + [new_pref] )
+                
+    res:List[List[str]] = []
+    gen_pal_decomp_helper(0,[])
+    return res
