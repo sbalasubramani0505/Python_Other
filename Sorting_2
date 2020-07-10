@@ -1,0 +1,30 @@
+# Problem 2 Quick Sort
+
+# Complete the function below.
+
+# In place
+# Evens on left, Odds on right
+# No need to preserve order of odds/evens
+# May contain dups
+
+def Partition(arr,low_index,high_index):
+    if low_index < high_index:
+        i = low_index - 1
+        for j in range(low_index,high_index):
+            if arr[j] % 2 == 0: 
+                i = i + 1
+                arr[i], arr[j] = arr[j], arr[i]
+        #print(arr)
+        return i+1
+    
+def QuickSort(arr,low_index,high_index):
+    if low_index < high_index:
+        pos = Partition(arr,low_index,high_index)
+        #print(pos)
+        QuickSort(arr,low_index,pos-1)
+        QuickSort(arr,pos+1,high_index)
+
+def solve(arr): # 1,2,3,4
+    # Quick sort/Partition evens on left and odds on right
+    QuickSort(arr,0,len(arr))
+    return arr
