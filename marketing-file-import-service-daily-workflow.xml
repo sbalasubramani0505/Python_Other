@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow-app
+    xmlns="uri:oozie:workflow:0.4"
+    name="marketing-file-import-service-daily-wf">
+    <global>
+        <job-tracker>${jobTracker}</job-tracker>
+        <name-node>${nameNode}</name-node>
+        <configuration>
+            <property>
+                <name>mapred.job.queue.name</name>
+                <value>${queueName}</value>
+            </property>
+            <property>
+                <name>tez.queue.name</name>
+                <value>${queueName}</value>
+            </property>
+        </configuration>
+    </global>
+
+	<credentials>
+		<credential name="hcat-cred" type="hcat">
+			<property>
+				<name>hcat.metastore.uri</name>
+				<value>${hcatMetastoreUri}</value>
+			</property>
+			<property>
+				<name>hcat.metastore.principal</name>
+				<value>${hcatMetastorePrincipal}</value>
+			</property>
+		</credential>
+	</credentials>
+
+    <start to="setup"/>
+
+    <action name="setup" retry-max="3">
+		<fs>
+			<mkdir path="${marketingdailyfileimportserviceStatusPath}" />
+			<mkdir path="${wfOutput}" />
+		</fs>
+		<ok to="workflow-completed-success-flag-check" />
+		<error to="fail" />
+    </action>
+
+     <!-- check if the job was already finished before -->
+    <decision name="workflow-completed-success-flag-check">
+        <switch>
+            <case to="end">${fs:exists(concat(wfOutput, concat('/', wfsuccessmarkerfile))) == "true"}</case>
+            <default to="receivables-et-files-check" />
+        </switch>
+    </decision>
+	
+    <decision name="receivables-et-files-check">
+        <switch>
+         <case to="marketing-et-tables-load-action">${fs:dirSize(marketingdailyetfileimportserviceImportFilePath) gt 0}</case>
+          <default to="receivables-xlxs-files-check" />
+        </switch>
+    </decision>
+	
+    <action name="marketing-et-tables-load-action" retry-max="3" cred="hcat-cred">
+		<java>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>oozie.action.sharelib.for.java</name>
+					<value>hive</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.user.classpath.first</name>
+					<value>true</value>
+				</property>
+			</configuration>
+			<main-class>com.lendingclub.edh.etl.FileLoadAction</main-class>
+			<arg>${hadoopConfigPath}</arg>
+			<arg>${appConfigFile}</arg>
+			<arg>marketingetfileImport</arg>
+		</java>
+		<ok to="marketing-rejected-emails-incremental-load" />
+		<error to="fail" />
+	</action>
+	
+    
+	<action name="marketing-rejected-emails-incremental-load" retry-max="3" retry-interval="10" cred="hcat-cred">
+        <hive xmlns="uri:oozie:hive-action:0.2">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <configuration>
+                <property>
+                    <name>mapred.reduce.tasks</name>
+                    <value>-1</value>
+                </property>
+            </configuration>
+            <script>${applicationPath}/hql-scripts/rejected_emails_incr_load.sql
+            </script>
+            <param>marketingDB=${marketingDB}</param>
+            <param>tempDB=${tempDB}</param>
+            <param>lownpikey=${lownpikey}</param>
+            <param>isumencrypt=${isumencrypt}</param>
+        </hive>
+        <ok to="receivables-xlxs-files-check" />
+        <error to="fail" />
+	</action>
+
+
+
+
+
+	<decision name="receivables-xlxs-files-check">
+        <switch>
+         <case to="marketing-xlsx-tables-load-action">${fs:dirSize(marketingdailyfileimportserviceImportFilePath) gt 0}</case>
+          <default to="receivables-files-check" />
+        </switch>
+    </decision>
+    
+
+    <action name="marketing-xlsx-tables-load-action" retry-max="3" cred="hcat-cred">
+		<java>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>oozie.action.sharelib.for.java</name>
+					<value>hive</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.user.classpath.first</name>
+					<value>true</value>
+				</property>
+			</configuration>
+			<main-class>com.lendingclub.edh.etl.FileLoadAction</main-class>
+			<arg>${hadoopConfigPath}</arg>
+			<arg>${appConfigFile}</arg>
+			<arg>marketingxlsxfileImport</arg>
+		</java>
+		<ok to="receivables-files-check" />
+		<error to="fail" />
+    </action>
+
+
+
+
+
+
+	
+	<decision name="receivables-files-check">
+        <switch>
+         <case to="create-channel-validation-dir">${fs:dirSize(marketingdailyfileimportserviceImportFilePath) gt 0}</case>
+          <default to="create-workflow-completed-success-flag" />
+        </switch>
+    </decision>
+    
+    <action name="create-channel-validation-dir">
+        <fs>
+                <mkdir  path='/data/lc/marketing/channel_validations' />
+        </fs>
+        <ok to="channel-preload-validations"/>
+        <error to="channel-preload-validations"/>
+    </action>
+
+    <action name="channel-preload-validations" cred="hcat-cred">
+        <shell xmlns="uri:oozie:shell-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <configuration>
+                <property>
+                  <name>mapred.job.queue.name</name>
+                  <value>${queueName}</value>
+                </property>
+            </configuration>
+            <exec>channel_preload_validations.sh</exec>
+            <env-var>HADOOP_USER_NAME=${wf:user()}</env-var>
+            <file>/lc/apps/file-import-service/scripts/channel_preload_validations.sh#channel_preload_validations.sh</file>
+            <capture-output/>
+        </shell>
+        <ok to="channel-pre-soft-alert-decsn"/>
+        <error to="marketing-reference-tables-load-action"/>
+    </action>
+
+    <decision name="channel-pre-soft-alert-decsn">
+        <switch>
+            <case to="channel-pre-soft-alert-clnup">${fs:exists('/data/lc/marketing/channel_validations/_CHN_PRE_WRN') == "true"}</case>
+            <default to="marketing-reference-tables-load-action" />
+        </switch>
+    </decision>
+
+    <action name="channel-pre-soft-alert-clnup">
+        <fs>
+            <delete path='/data/lc/marketing/channel_validations' />
+        </fs>
+        <ok to="channel-pre-soft-alert" />
+        <error to="channel-pre-soft-alert" />
+    </action>
+    
+   <action name="channel-pre-soft-alert" retry-max="3" retry-interval="10" cred="hcat-cred">
+        <email xmlns="uri:oozie:email-action:0.2">
+            <to>${chn_alert_list}</to>
+            <subject>Soft Alert: Ref_id/Channel Load</subject>
+            <body>Soft Alert: Ref_id/Channel Load ${wf:actionData('channel-preload-validations')['Pre_Warn_Reason']}</body>
+        </email>
+        <ok to="fail" />
+        <error to="fail" />
+    </action>
+
+    <action name="marketing-reference-tables-load-action" retry-max="3" cred="hcat-cred">
+		<java>
+			<job-tracker>${jobTracker}</job-tracker>
+			<name-node>${nameNode}</name-node>
+			<configuration>
+				<property>
+					<name>mapred.job.queue.name</name>
+					<value>${queueName}</value>
+				</property>
+				<property>
+					<name>oozie.action.sharelib.for.java</name>
+					<value>hive</value>
+				</property>
+				<property>
+					<name>oozie.launcher.mapreduce.job.user.classpath.first</name>
+					<value>true</value>
+				</property>
+			</configuration>
+			<main-class>com.lendingclub.edh.etl.FileLoadAction</main-class>
+			<arg>${hadoopConfigPath}</arg>
+			<arg>${appConfigFile}</arg>
+			<arg>marketingfileImport</arg>
+		</java>
+		<ok to="channel-postload-validations" />
+		<error to="fail" />
+    </action>
+
+    <action name="channel-postload-validations" cred="hcat-cred">
+        <shell xmlns="uri:oozie:shell-action:0.1">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <configuration>
+                <property>
+                  <name>mapred.job.queue.name</name>
+                  <value>${queueName}</value>
+                </property>
+            </configuration>
+            <exec>channel_postload_validations.sh</exec>
+            <env-var>HADOOP_USER_NAME=${wf:user()}</env-var>
+            <file>/lc/apps/file-import-service/scripts/channel_postload_validations.sh#channel_postload_validations.sh</file>
+            <capture-output/>
+        </shell>
+        <ok to="channel-post-soft-alert-decsn"/>
+        <error to="cleanup-channel-validation-dir"/>
+    </action>
+
+    <decision name="channel-post-soft-alert-decsn">
+        <switch>
+            <case to="channel-post-soft-alert-clnup">${fs:exists('/data/lc/marketing/channel_validations/_CHN_WRN') == "true"}</case>
+            <default to="cleanup-channel-validation-dir" />
+        </switch>
+    </decision>
+    
+    <action name="channel-post-soft-alert-clnup">
+        <fs>
+            <delete path='/data/lc/marketing/channel_validations' />
+        </fs>
+        <ok to="channel-post-soft-alert" />
+        <error to="channel-post-soft-alert" />
+    </action>
+
+   <action name="channel-post-soft-alert" retry-max="3" retry-interval="10" cred="hcat-cred">
+        <email xmlns="uri:oozie:email-action:0.2">
+            <to>${chn_alert_list}</to>
+            <subject>Soft Alert: Ref_id/Channel Load</subject>
+            <body>Soft Alert: Ref_id/Channel Load ${wf:actionData('channel-postload-validations')['Warn_Reason']}</body>
+        </email>
+        <ok to="fail" />
+        <error to="fail" />
+    </action>
+
+    <action name="cleanup-channel-validation-dir">
+        <fs>
+            <delete path='/data/lc/marketing/channel_validations' />
+        </fs>
+        <ok to="create-workflow-completed-success-flag" />
+        <error to="create-workflow-completed-success-flag" />
+    </action>
+	
+	
+    <action name="create-workflow-completed-success-flag">
+        <fs>
+            <touchz path='${wfOutput}/${wfsuccessmarkerfile}' />
+        </fs>
+        <ok to="end"/>
+        <error to="fail"/>
+    </action>
+
+    <action name="fail">
+        <email xmlns="uri:oozie:email-action:0.1">
+            <to>${notificationEmail_2}</to>
+            <subject>${emailTitle} Workflow ${wf:name()} failed.</subject>
+            <body>The workflow ${wf:name()}'s instance with id ${wf:id()} failed.</body>
+        </email>
+        <ok to="error-cleanup"/>
+        <error to="error-cleanup"/>
+    </action>
+    
+    <kill name="error-cleanup">
+        <message>Import job failed, error message[${wf:errorMessage(wf:lastErrorNode())}]</message>
+    </kill>
+
+    <end name="end"/>
+</workflow-app>

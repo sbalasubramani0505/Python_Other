@@ -1,0 +1,6 @@
+fileName|channel.csv
+Delimiter|,
+colCount|4
+Header|REFERER_ID,REFERER_NAME,CHANNELSMALL,CHANNEL2
+fieldType|int,string,string,string
+Quoted|

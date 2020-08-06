@@ -1,0 +1,57 @@
+<coordinator-app 
+    name="marketing-file-import-service-daily-coord" frequency="${coord:days(1)}"
+    start="${dailyStartTime}" end="${dailyEndTime}"
+    timezone="America/Los_Angeles" xmlns="uri:oozie:coordinator:0.2">
+
+    <controls>
+        <timeout>${timeoutValue}</timeout>
+        <concurrency>1</concurrency>
+        <execution>LAST_ONLY</execution>
+    </controls>
+
+    <datasets>
+       <dataset name="marketing-file-import-service-daily-ready" frequency="${coord:days(1)}"
+            initial-instance="${dailyStartTime}" timezone="America/Los_Angeles">
+            <uri-template>${marketingdailyfileimportserviceStatusPath}/${YEAR}_${MONTH}_${DAY}</uri-template>
+            <done-flag>_SUCCESS</done-flag>
+        </dataset>
+    </datasets>
+
+    <output-events>
+        <data-out name="output" dataset="marketing-file-import-service-daily-ready">
+            <instance>${coord:current(0)}</instance>
+        </data-out>
+    </output-events>
+
+    <action>
+        <workflow>
+            <app-path>${nameNode}${marketingfileimportdailyWorkflowPath}</app-path>
+            <configuration>
+                <property>
+                    <name>wfOutput</name>
+                    <value>${coord:dataOut('output')}</value>
+                </property>
+                <property>
+                    <name>period</name>
+                    <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), -1, 'DAY'), 'yyyy-MM-dd')}</value>
+                </property>
+                <property>
+                    <name>period_mth</name>
+                    <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), -1, 'DAY'), 'yyyy-MM')}</value>
+                </property>
+                <property>
+                    <name>snapshot</name>
+                    <value>${coord:formatTime(coord:nominalTime(), '_yyyy_MM_dd')}</value>
+                </property>
+                <property>
+                    <name>reportEndDate</name>
+                    <value>${coord:formatTime(coord:nominalTime(), 'yyyy-MM-dd')}</value>
+                </property>
+                <property>
+                    <name>currMthStartDate</name>
+                    <value>${coord:formatTime(coord:dateOffset(coord:nominalTime(), -1, 'DAY'), 'yyyy-MM-01')}</value>
+                </property>
+            </configuration>
+        </workflow>
+    </action>
+</coordinator-app>
